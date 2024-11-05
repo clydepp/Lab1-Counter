@@ -1,6 +1,7 @@
 #include "Vcounter.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
+#include "vbuddy.cpp"
 // ignore error signs
 
 
@@ -17,26 +18,38 @@ int main(int argc, char **argv, char **env){
     top->trace (tfp, 99);
     tfp->open ("counter.vcd");
 
+    // open and initialise Vbuddy connection
+    if (vbdOpen() != 1) return(-1);
+    vbdHeader("Lab 1: Counter");
+
     top->clk = 1;
     top->rst = 1;
     top->en = 0;
+    for (i=0; i<200; i++){
 
-    bool nbetween = true;
-    for (i=0; i<300; i++){
-        if (i == 26) top->rst = 1; // cancels value 14
         for (clk=0; clk<2; clk++){
             tfp->dump (2*i + clk);
             top->clk = !top->clk;
             top->eval ();
         }
-        top->rst = (i<2);
-        if (i > 10 && i < 14) nbetween = false;
-        else nbetween = true; // to reset when not in range
-        // i is 11, 12, 13 - this is synchronous so delay by one cycle
-        top->en = (nbetween);
-        // putting line 26 here cancels value 15       
+
+        // send count value to Vbuddy
+        /* 7-seg display
+        vbdHex(4, (int(top->count) >> 16) & 0xF);
+        vbdHex(3, (int(top->count) >> 8) & 0xF);
+        vbdHex(2, (int(top->count) >> 4) & 0xF);
+        vbdHex(1, int(top->count) & 0xF);
+        vbdCycle(i+1);
+        */
+        // end of Vbuddy output section
+        vbdPlot(int(top->count), 0, 255);
+
+        top->rst = (i<2) | (i==10);
+        // top->en = (i>4);
+        top->en = vbdFlag();
         if (Verilated::gotFinish()) exit(0);
     }
+    vbdClose(); // for housekeeping
     tfp->close();
     exit(0);
 }
